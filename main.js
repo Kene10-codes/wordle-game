@@ -81,7 +81,6 @@ const startGame = async () => {
   inputBox = document.querySelectorAll(".input-box");
   updateDivConfig(inputRow[tryCount].firstChild, false);
   randomWord = getRandom();
-  console.log(randomWord);
 };
 
 //Get random word
