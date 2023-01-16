@@ -40,26 +40,26 @@ let words = [
   "house",
   "delay",
 ];
-
 let container = document.querySelector(".container");
 let winScreen = document.querySelector(".win-screen");
 let submitButton = document.querySelector(".submit");
-
 let inputCount, tryCount, inputRow;
 let backSpaceCount = 0;
 let randomWord, finalWord;
 
-// Touch Eevent func
-function isTouchDevice() {
+//Detect touch device
+const isTouchDevice = () => {
   try {
+    //We try to create TouchEvent (it would fail for desktops and throw error)
     document.createEvent("TouchEvent");
     return true;
-  } catch (err) {
+  } catch (e) {
     return false;
   }
-}
+};
 
-async function StartGame() {
+//Initial Setup
+const startGame = async () => {
   winScreen.classList.add("hide");
   container.innerHTML = "";
   inputCount = 0;
@@ -67,88 +67,156 @@ async function StartGame() {
   tryCount = 0;
   finalWord = "";
 
-  // Create the grid
+  // nnCreating the grid
   for (let i = 0; i < 6; i++) {
     let inputGroup = document.createElement("div");
     inputGroup.classList.add("input-group");
     for (let j = 0; j < 5; j++) {
-      inputGroup.innerHTML = `<input type="text" class="input-box" onkeyup="checker(event)" maxLength="1" disabled />`;
+      //Disabled by default. We will enable one by one
+      inputGroup.innerHTML += `<input type="text" class="input-box" onkeyup="checker(event)" maxlength="1" disabled>`;
     }
-
     await container.appendChild(inputGroup);
   }
-
   inputRow = document.querySelectorAll(".input-group");
-  inputBox = document.querySelectorAll("input-box");
-  UpdateDivConfig(inputRow[tryCount].firstChild, false);
-  randomWord = GetRandomWord();
+  inputBox = document.querySelectorAll(".input-box");
+  updateDivConfig(inputRow[tryCount].firstChild, false);
+  randomWord = getRandom();
   console.log(randomWord);
-}
+};
 
-// Get randomw word
-function GetRandomWord() {
-  return words[Math.floor(Math.random() * words.length)].toUpperCase();
-}
+//Get random word
+const getRandom = () =>
+  words[Math.floor(Math.random() * words.length)].toUpperCase();
 
-function UpdateDivConfig(element, disabledStatus) {
+//Update input to disabled status and set focus
+const updateDivConfig = (element, disabledStatus) => {
   element.disabled = disabledStatus;
   if (!disabledStatus) {
     element.focus();
   }
-}
+};
 
-// Logic func to handle user inputs
-function checked(e) {
+//Logic for writing in the inputs
+const checker = async (e) => {
   let value = e.target.value.toUpperCase();
-  // Disable current input box
-  UpdateDivConfig(e.target, true);
+  //disable current input box
+  updateDivConfig(e.target, true);
   if (value.length == 1) {
-    //  if word is less than and the button is a backspace key
-    if (inputCount < 5 && e.key != "Backspace") {
-      finalWord = finalWord + value;
+    //if the word is lesss than 5 length and the button isn't backspace
+    if (inputCount <= 4 && e.key != "Backspace") {
+      //Attach the letter to the final word
+      finalWord += value;
       if (inputCount < 4) {
-        UpdateDivConfig(e.target.nectSibling, false);
+        //enable next
+        updateDivConfig(e.target.nextSibling, false);
       }
     }
     inputCount += 1;
   } else if (value.length == 0 && e.key == "Backspace") {
+    //Empty input box anduser press Backspace
     finalWord = finalWord.substring(0, finalWord.length - 1);
     if (inputCount == 0) {
-      UpdateDivConfig(e.target, false);
+      //For first inputbox
+      updateDivConfig(e.target, false);
       return false;
     }
-    UpdateDivConfig(e.target, value);
+    updateDivConfig(e.target, true);
     e.target.previousSibling.value = "";
-    // Enable previous and decrement count
-    UpdateDivConfig(e.target.previousSibling, false);
+    //enable previous and decrement count
+    updateDivConfig(e.target.previousSibling, false);
     inputCount = -1;
   }
-}
+};
 
+//When user presses enter/backspace and all the inputs are filled
 window.addEventListener("keyup", (e) => {
   if (inputCount > 4) {
     if (isTouchDevice()) {
       submitButton.classList.remove("hide");
     }
     if (e.key == "Enter") {
-      //validateWord();
-      console.log("okay");
+      validateWord();
     } else if (e.key == "Backspace") {
-      inputRow[tryCount].lastChild, (value = "");
+      inputRow[tryCount].lastChild.value = "";
       finalWord = finalWord.substring(0, finalWord.length - 1);
-      UpdateDivConfig(inputRow[tryCount].lastChild, false);
+      updateDivConfig(inputRow[tryCount].lastChild, false);
       inputCount -= 1;
     }
   }
 });
 
-// Comparison Logix
-async function ValidateWord() {
+//Comparison Logic
+const validateWord = async () => {
   if (isTouchDevice()) {
     submitButton.classList.add("hide");
   }
   let failed = false;
-}
+  //Get all input boxes of current row
+  let currentInputs = inputRow[tryCount].querySelectorAll(".input-box");
+  //Check if it is a valid english word
+  await fetch(
+    `https://api.dictionaryapi.dev/api/v2/entries/en/${finalWord}`
+  ).then((response) => {
+    if (response.status == "404") {
+      console.clear();
+      alert("Please Enter Valid Word");
+      failed = true;
+    }
+  });
 
-// Update DisableStatus
-window.onload = StartGame();
+  //If not then stop here
+  if (failed) {
+    return false;
+  }
+  // Initially set these
+  let successCount = 0;
+  let successLetters = "";
+  // Checks for both words
+  for (let i in randomWord) {
+    // if same then green
+    if (finalWord[i] == randomWord[i]) {
+      currentInputs[i].classList.add("correct");
+      successCount += 1;
+      successLetters += randomWord[i];
+    } else if (
+      randomWord.includes(finalWord[i]) &&
+      !successLetters.includes(finalWord[i])
+    ) {
+      // If the letter exist in the chosen word and is not present in the success array then yellow
+      currentInputs[i].classList.add("exists");
+    } else {
+      currentInputs[i].classList.add("incorrect");
+    }
+  }
+  // Increment try count
+  tryCount += 1;
+  // If all letters are correct
+  if (successCount == 5) {
+    // Display the win banner after 1 second
+    setTimeout(() => {
+      winScreen.classList.remove("hide");
+      winScreen.innerHTML = `
+        <span>Total guesses: ${tryCount}</span>
+        <button onclick="startGame()">New Game</button>
+        `;
+    }, 1000);
+  } else {
+    // unsuccessful so next attempt
+    inputCount = 0;
+    finalWord = "";
+    if (tryCount == 6) {
+      //all attempts wrong
+      tryCount = 0;
+      winScreen.classList.remove("hide");
+      winScreen.innerHTML = ` <span>You lose</span>
+        <button onclick="startGame()">New Game</button>`;
+      return false;
+    }
+    // for next attempt move to first child of next row
+    updateDivConfig(inputRow[tryCount].firstChild, false);
+  }
+  inputCount = 0;
+};
+
+// Load event
+window.addEventListener("load", startGame)
